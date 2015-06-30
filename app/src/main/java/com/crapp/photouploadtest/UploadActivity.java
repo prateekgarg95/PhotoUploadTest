@@ -174,7 +174,7 @@ public class UploadActivity extends Activity {
                 is = new BufferedInputStream(conn.getInputStream());
                 BufferedReader br = new BufferedReader(new InputStreamReader(is));
                 String inputLine = "";
-                StringBuffer sb = new StringBuffer();
+                StringBuilder sb = new StringBuilder();
                 while ((inputLine = br.readLine()) != null) {
                     sb.append(inputLine);
                 }
@@ -196,6 +196,7 @@ public class UploadActivity extends Activity {
                 fileInputStream.close();
                 dos.flush();
                 dos.close();
+                is.close();
 
             } catch (FileNotFoundException e1) {
                 e1.printStackTrace();
