@@ -2,6 +2,7 @@ package com.crapp.photouploadtest;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 
 
@@ -31,8 +32,10 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-
-
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 
 public class UploadActivity extends Activity {
@@ -49,6 +52,9 @@ public class UploadActivity extends Activity {
 
     String text;
     int serverResponseCode;
+
+    final ExecutorService executor = Executors.newCachedThreadPool(Executors.defaultThreadFactory());
+    Future<Void> future;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,16 +91,31 @@ public class UploadActivity extends Activity {
                 progressDialog.setProgress(0);
                 progressDialog.setIndeterminate(false);
                 progressDialog.setCancelable(false);
+                progressDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        future.cancel(true);
+                        progressDialog.dismiss();
+                        image.setVisibility(View.VISIBLE);
+                        uploadBtn.setVisibility(View.VISIBLE);
+                    }
+                });
                 progressDialog.show();
                 image.setVisibility(View.GONE);
                 uploadBtn.setVisibility(View.GONE);
 
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        uploadFile(imageURI.getPath());
-                    }
-                }).start();
+                //new Thread(new Runnable() {
+                //    @Override
+                //    public void run() {
+                        future = executor.submit(new Callable<Void>() {
+                            @Override
+                            public Void call() throws Exception {
+                                uploadFile(imageURI.getPath());
+                                return null;
+                            }
+                        });
+                //    }
+                //}).start();
 
             }
         });
