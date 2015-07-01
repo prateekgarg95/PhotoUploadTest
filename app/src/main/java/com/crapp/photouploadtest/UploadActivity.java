@@ -43,7 +43,7 @@ public class UploadActivity extends Activity {
     ImageView image;
     Button uploadBtn;
 
-    ProgressDialog pDialog;
+    ProgressDialog progressDialog;
 
     String uploadServerUri;
 
@@ -67,10 +67,10 @@ public class UploadActivity extends Activity {
         imageURI = i.getData();
 
         // Bitmap factory
-        //BitmapFactory.Options options = new BitmapFactory.Options();
+        BitmapFactory.Options options = new BitmapFactory.Options();
         // downsizing image as it throws OutOfMemory Exception for larger images
-        //options.inSampleSize = 8;
-        Bitmap bitmap = BitmapFactory.decodeFile(imageURI.getPath());
+        options.inSampleSize = 8;
+        Bitmap bitmap = BitmapFactory.decodeFile(imageURI.getPath(),options);
         path.setText(imageURI.getPath());
         image.setImageBitmap(bitmap);
 
@@ -78,7 +78,14 @@ public class UploadActivity extends Activity {
             @Override
             public void onClick(View v) {
 
-                pDialog = ProgressDialog.show(UploadActivity.this, "File Upload", "Uploading File...", true);
+                progressDialog = new  ProgressDialog(UploadActivity.this);
+                progressDialog.setTitle("File Upload");
+                progressDialog.setMessage("Uploading File...");
+                progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                progressDialog.setProgress(0);
+                progressDialog.setIndeterminate(false);
+                progressDialog.setCancelable(false);
+                progressDialog.show();
                 image.setVisibility(View.GONE);
                 uploadBtn.setVisibility(View.GONE);
 
@@ -104,17 +111,15 @@ public class UploadActivity extends Activity {
         String boundary = "*****";
         int bytesRead, bytesAvailable, bufferSize;
         byte[] buffer;
-        int maxBufferSize = 1 * 1024 * 1024;
+        int maxBufferSize = 1 * 1024;
         File sourceFile = new File(sourceFileUri);
         if (!sourceFile.isFile()) {
-
-            pDialog.dismiss();
-
             Log.e("uploadFile", "Source File not exist :" + imageURI.getPath());
 
             runOnUiThread(new Runnable() {
                 public void run() {
                     message.setText("Source File not exist :" + imageURI.getPath());
+                    progressDialog.dismiss();
                 }
             });
             return 0;
@@ -128,6 +133,9 @@ public class UploadActivity extends Activity {
                 conn.setDoInput(true); // Allow Inputs
                 conn.setDoOutput(true); // Allow Outputs
                 conn.setUseCaches(false); // Don't use a Cached Copy
+                //int length = (int)sourceFile.length();
+                //conn.setFixedLengthStreamingMode(length);
+                conn.setChunkedStreamingMode(1024);
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Connection", "Keep-Alive");
                 conn.setRequestProperty("ENCTYPE", "multipart/form-data");
@@ -142,6 +150,8 @@ public class UploadActivity extends Activity {
 
                 // create a buffer of  maximum size
                 bytesAvailable = fileInputStream.available();
+                final int hundredPercent = bytesAvailable;
+                progressDialog.setMax(hundredPercent);
 
                 bufferSize = Math.min(bytesAvailable, maxBufferSize);
                 buffer = new byte[bufferSize];
@@ -156,7 +166,26 @@ public class UploadActivity extends Activity {
                     bufferSize = Math.min(bytesAvailable, maxBufferSize);
                     bytesRead = fileInputStream.read(buffer, 0, bufferSize);
 
+                    final int restBytes = bytesAvailable;
+                    final int uploadedBytes = hundredPercent - restBytes;
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            progressDialog.setProgress((int) uploadedBytes);
+                            if (restBytes <= 0) {
+                                progressDialog.setMessage("Upload Complete");
+                            }
+                        }
+                    });
+
                 }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressDialog.setMessage("Upload Complete");
+                    }
+                });
 
                 // send multipart form data necesssary after file data...
                 dos.writeBytes(lineEnd);
@@ -166,8 +195,6 @@ public class UploadActivity extends Activity {
                 serverResponseCode = conn.getResponseCode();
                 String serverResponseMessage = conn.getResponseMessage();
 
-                Log.i("uploadFile", "HTTP Response is : "
-                        + serverResponseMessage + ": " + serverResponseCode);
                 Log.i("uploadFile", "HTTP Response is : "
                         + serverResponseMessage + ": " + serverResponseCode);
 
@@ -218,7 +245,7 @@ public class UploadActivity extends Activity {
                 });
             }
 
-            pDialog.dismiss();
+            progressDialog.dismiss();
             return serverResponseCode;
         }
     }
